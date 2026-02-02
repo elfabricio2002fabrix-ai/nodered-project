@@ -1,78 +1,682 @@
 [
     {
-        "id": "67a3c95ea735c462",
+        "id": "subflow_csv_max",
+        "type": "subflow",
+        "name": "Máximo columna CSV",
+        "info": "Subflow modular que calcula el valor máximo de una columna de un archivo CSV. La ruta del archivo y la columna se configuran desde las propiedades del subflow.",
+        "in": [
+            {
+                "x": 40,
+                "y": 80,
+                "wires": [
+                    {
+                        "id": "function_filename"
+                    }
+                ]
+            }
+        ],
+        "out": [
+            {
+                "x": 560,
+                "y": 80,
+                "wires": [
+                    {
+                        "id": "function_max",
+                        "port": 0
+                    }
+                ]
+            }
+        ],
+        "env": [
+            {
+                "name": "CSV_PATH",
+                "type": "str",
+                "value": "C:/datos/datos.csv"
+            },
+            {
+                "name": "COLUMN",
+                "type": "str",
+                "value": "corriente"
+            }
+        ]
+    },
+    {
+        "id": "function_filename",
+        "type": "function",
+        "z": "subflow_csv_max",
+        "name": "Definir archivo",
+        "func": "// Definir ruta del archivo CSV desde variables de entorno del subflow\nmsg.filename = env.get('CSV_PATH');\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 200,
+        "y": 80,
+        "wires": [
+            [
+                "read_file"
+            ]
+        ]
+    },
+    {
+        "id": "read_file",
+        "type": "file in",
+        "z": "subflow_csv_max",
+        "name": "Leer CSV",
+        "filename": "",
+        "format": "utf8",
+        "chunk": false,
+        "sendError": false,
+        "encoding": "none",
+        "allProps": false,
+        "x": 360,
+        "y": 80,
+        "wires": [
+            [
+                "csv_node"
+            ]
+        ]
+    },
+    {
+        "id": "csv_node",
+        "type": "csv",
+        "z": "subflow_csv_max",
+        "name": "Parse CSV",
+        "sep": ",",
+        "hdrin": true,
+        "hdrout": "none",
+        "multi": "one",
+        "ret": "\\n",
+        "temp": "",
+        "skip": "0",
+        "strings": false,
+        "include_empty_strings": false,
+        "include_null_values": false,
+        "x": 520,
+        "y": 80,
+        "wires": [
+            [
+                "function_max"
+            ]
+        ]
+    },
+    {
+        "id": "function_max",
+        "type": "function",
+        "z": "subflow_csv_max",
+        "name": "Calcular máximo",
+        "func": "// Obtener nombre de columna desde propiedades del subflow\nconst column = env.get('COLUMN');\n\nif (!Array.isArray(msg.payload)) {\n    return null;\n}\n\nlet max = null;\n\nmsg.payload.forEach(row => {\n    const value = Number(row[column]);\n    if (!isNaN(value)) {\n        if (max === null || value > max) {\n            max = value;\n        }\n    }\n});\n\nmsg.max = max;\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 740,
+        "y": 80,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "subflow_timestamp",
+        "type": "subflow",
+        "name": "Timestamp cada 1s",
+        "info": "Subflow que genera un timestamp en formato STRING cada 1 segundo y lo entrega en msg.timestamp. Se detiene al recibir msg.reset.",
+        "in": [
+            {
+                "x": 40,
+                "y": 80,
+                "wires": [
+                    {
+                        "id": "function_timestamp"
+                    }
+                ]
+            }
+        ],
+        "out": [
+            {
+                "x": 360,
+                "y": 80,
+                "wires": [
+                    {
+                        "id": "function_timestamp",
+                        "port": 0
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "id": "function_timestamp",
+        "type": "function",
+        "z": "subflow_timestamp",
+        "name": "Generar timestamp",
+        "func": "let interval = context.get('interval');\n\nfunction formatTimestamp(date) {\n    const pad = n => n.toString().padStart(2, '0');\n    return date.getFullYear() + '-' +\n        pad(date.getMonth() + 1) + '-' +\n        pad(date.getDate()) + ' ' +\n        pad(date.getHours()) + ':' +\n        pad(date.getMinutes()) + ':' +\n        pad(date.getSeconds());\n}\n\n// Detener si llega reset\nif (msg.reset) {\n    if (interval) {\n        clearInterval(interval);\n        context.set('interval', null);\n    }\n    return null;\n}\n\n// Iniciar si no existe intervalo\nif (!interval) {\n    interval = setInterval(() => {\n        node.send({ timestamp: formatTimestamp(new Date()) });\n    }, 1000);\n    context.set('interval', interval);\n}\n\nreturn null;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 200,
+        "y": 80,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "subflow_modbus_coils",
+        "type": "subflow",
+        "name": "Leer Coils Modbus",
+        "info": "Subflow para leer Coils de un servidor Modbus. Permite configurar Address y Quantity desde las propiedades del subflow.",
+        "in": [
+            {
+                "x": 40,
+                "y": 80,
+                "wires": [
+                    {
+                        "id": "function_prepare"
+                    }
+                ]
+            }
+        ],
+        "out": [
+            {
+                "x": 460,
+                "y": 80,
+                "wires": [
+                    {
+                        "id": "modbus_getter",
+                        "port": 0
+                    }
+                ]
+            }
+        ],
+        "env": [
+            {
+                "name": "ADDRESS",
+                "type": "num",
+                "value": "0"
+            },
+            {
+                "name": "QUANTITY",
+                "type": "num",
+                "value": "4"
+            }
+        ]
+    },
+    {
+        "id": "function_prepare",
+        "type": "function",
+        "z": "subflow_modbus_coils",
+        "name": "Preparar lectura",
+        "func": "// Configurar Address y Quantity desde propiedades del subflow\nmsg.address = env.get('ADDRESS');\nmsg.quantity = env.get('QUANTITY');\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 220,
+        "y": 80,
+        "wires": [
+            [
+                "modbus_getter"
+            ]
+        ]
+    },
+    {
+        "id": "modbus_getter",
+        "type": "modbus-getter",
+        "z": "subflow_modbus_coils",
+        "name": "Leer Coils",
+        "showStatusActivities": false,
+        "showErrors": false,
+        "logIOActivities": false,
+        "server": "modbus_server",
+        "useIOFile": false,
+        "ioFile": "",
+        "useIOForPayload": false,
+        "emptyMsgOnFail": false,
+        "keepMsgProperties": true,
+        "x": 360,
+        "y": 80,
+        "wires": [
+            [],
+            []
+        ]
+    },
+    {
+        "id": "modbus_server",
+        "type": "modbus-client",
+        "name": "Servidor Modbus Slave",
+        "clienttype": "tcp",
+        "bufferCommands": true,
+        "stateLogEnabled": false,
+        "queueLogEnabled": false,
+        "tcpHost": "127.0.0.1",
+        "tcpPort": "502",
+        "tcpType": "DEFAULT",
+        "unit_id": "1",
+        "reconnectOnTimeout": true,
+        "reconnectTimeout": "2000"
+    },
+    {
+        "id": "d3d72eb37a8693c8",
         "type": "tab",
-        "label": "Flow 1",
+        "label": "Flow 2",
         "disabled": false,
         "info": "",
         "env": []
     },
     {
-        "id": "a1b2c3d4e5f6g7h8",
-        "type": "tab",
-        "label": "Modbus Slave - Lectura Coils",
-        "disabled": false,
-        "info": ""
+        "id": "1a2b3c4d5e6f7g8h",
+        "type": "modbus-read",
+        "z": "d3d72eb37a8693c8",
+        "name": "Leer Coils 1-4",
+        "topic": "",
+        "showStatusActivities": false,
+        "logIOActivities": false,
+        "showErrors": false,
+        "showWarnings": true,
+        "unitid": "1",
+        "dataType": "Coil",
+        "adr": "0",
+        "quantity": "4",
+        "rate": "1",
+        "rateUnit": "s",
+        "delayOnStart": false,
+        "enableDeformedMessages": false,
+        "startDelayTime": "",
+        "server": "modbus-server-1",
+        "useIOFile": false,
+        "ioFile": "",
+        "useIOForPayload": false,
+        "emptyMsgOnFail": false,
+        "x": 150,
+        "y": 120,
+        "wires": [
+            [
+                "2b3c4d5e6f7g8h9i"
+            ],
+            []
+        ]
     },
     {
-        "id": "20fef9d529c2fa62",
-        "type": "modbus-client",
+        "id": "2b3c4d5e6f7g8h9i",
+        "type": "function",
+        "z": "d3d72eb37a8693c8",
+        "name": "Procesar Datos Coils",
+        "func": "// Procesar las 4 coils leídas\nvar coils = msg.payload;\n\nmsg.payload = {\n    coil_1: coils[0],\n    coil_2: coils[1],\n    coil_3: coils[2],\n    coil_4: coils[3],\n    timestamp: new Date().toISOString()\n};\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 390,
+        "y": 120,
+        "wires": [
+            [
+                "3c4d5e6f7g8h9i0j"
+            ]
+        ]
+    },
+    {
+        "id": "3c4d5e6f7g8h9i0j",
+        "type": "debug",
+        "z": "d3d72eb37a8693c8",
+        "name": "Mostrar Coils",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 620,
+        "y": 120,
+        "wires": []
+    },
+    {
+        "id": "4d5e6f7g8h9i0j1k",
+        "type": "inject",
+        "z": "d3d72eb37a8693c8",
+        "name": "Iniciar Lectura Manual",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 160,
+        "y": 40,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "ui_template_imagen",
+        "type": "ui_template",
+        "z": "d3d72eb37a8693c8",
+        "group": "ui_group_motor",
+        "name": "Imagen Motor",
+        "order": 1,
+        "width": "6",
+        "height": "4",
+        "format": "<div style=\"text-align: center; padding: 10px;\">\n    <img src=\"data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8IS0tIENhc2EgZGVsIG1vdG9yIC0tPgogIDxyZWN0IHg9IjQwIiB5PSI2MCIgd2lkdGg9IjEyMCIgaGVpZ2h0PSI4MCIgZmlsbD0iIzMzMzMzMyIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjIiLz4KICAKICA8IS0tIFZlbnRpbGFkb3IgLS0+CiAgPGNpcmNsZSBjeD0iMTAwIiBjeT0iMTAwIiByPSIzNSIgZmlsbD0iIzY2NjY2NiIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjIiLz4KICAKICA8IS0tIENlbnRybyBkZWwgbW90b3IgLS0+CiAgPGNpcmNsZSBjeD0iMTAwIiBjeT0iMTAwIiByPSIxMCIgZmlsbD0iIzIyMjIyMiIvPgogIAogIDwhLS0gQXNwYXMgZGVsIHZlbnRpbGFkb3IgLS0+CiAgPGxpbmUgeDE9IjEwMCIgeTE9IjEwMCIgeDI9IjEzMCIgeTI9IjkwIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMyIvPgogIDxsaW5lIHgxPSIxMDAiIHkxPSIxMDAiIHgyPSIxMTAiIHkyPSIxMzAiIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLXdpZHRoPSIzIi8+CiAgPGxpbmUgeDE9IjEwMCIgeTE9IjEwMCIgeDI9IjcwIiB5Mj0iMTEwIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMyIvPgogIAogIDwhLS0gQ29uZXhpb25lcyAtLT4KICA8bGluZSB4MT0iNDAiIHkxPSI4MCIgeDI9IjIwIiB5Mj0iODAiIHN0cm9rZT0iI0ZGMDAwMCIgc3Ryb2tlLXdpZHRoPSIzIi8+CiAgPGxpbmUgeDE9IjQwIiB5MT0iMTIwIiB4Mj0iMjAiIHkyPSIxMjAiIHN0cm9rZT0iIzAwMDBGRiIgc3Ryb2tlLXdpZHRoPSIzIi8+CiAgCiAgPCEtLSBUZXh0byAtLT4KICA8dGV4dCB4PSIxMDAiIHk9IjE4MCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE2IiBmaWxsPSIjMzMzIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5NT1RPUjwvdGV4dD4KPC9zdmc+\" \n         style=\"max-width: 100%; height: auto;\" \n         alt=\"Motor Eléctrico\"/>\n    <h3 style=\"color: #333; margin-top: 10px;\">Motor Eléctrico</h3>\n</div>",
+        "storeOutMessages": false,
+        "fwdInMessages": false,
+        "resendOnRefresh": false,
+        "templateScope": "local",
+        "className": "",
+        "x": 220,
+        "y": 480,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "ui_button_encender",
+        "type": "ui_button",
+        "z": "d3d72eb37a8693c8",
+        "name": "Botón Encender",
+        "group": "ui_group_motor",
+        "order": 2,
+        "width": "3",
+        "height": "1",
+        "passthru": false,
+        "label": "🟢 ENCENDER",
+        "tooltip": "Encender el motor",
+        "color": "white",
+        "bgcolor": "#4CAF50",
+        "className": "",
+        "icon": "fa-play",
+        "payload": "{\"comando\":\"encender\",\"estado\":true}",
+        "payloadType": "json",
+        "topic": "motor",
+        "topicType": "str",
+        "x": 220,
+        "y": 560,
+        "wires": [
+            [
+                "control_motor_node",
+                "actualizar_led_node"
+            ]
+        ]
+    },
+    {
+        "id": "ui_button_apagar",
+        "type": "ui_button",
+        "z": "d3d72eb37a8693c8",
+        "name": "Botón Apagar",
+        "group": "ui_group_motor",
+        "order": 3,
+        "width": "3",
+        "height": "1",
+        "passthru": false,
+        "label": "🔴 APAGAR",
+        "tooltip": "Apagar el motor",
+        "color": "white",
+        "bgcolor": "#F44336",
+        "className": "",
+        "icon": "fa-stop",
+        "payload": "{\"comando\":\"apagar\",\"estado\":false}",
+        "payloadType": "json",
+        "topic": "motor",
+        "topicType": "str",
+        "x": 220,
+        "y": 620,
+        "wires": [
+            [
+                "control_motor_node",
+                "actualizar_led_node"
+            ]
+        ]
+    },
+    {
+        "id": "ui_button_velocidad_baja",
+        "type": "ui_button",
+        "z": "d3d72eb37a8693c8",
+        "name": "Velocidad Baja",
+        "group": "ui_group_motor",
+        "order": 4,
+        "width": "2",
+        "height": "1",
+        "passthru": false,
+        "label": "Baja",
+        "tooltip": "Velocidad baja",
+        "color": "white",
+        "bgcolor": "#2196F3",
+        "className": "",
+        "icon": "",
+        "payload": "{\"comando\":\"velocidad\",\"valor\":30}",
+        "payloadType": "json",
+        "topic": "motor",
+        "topicType": "str",
+        "x": 220,
+        "y": 680,
+        "wires": [
+            [
+                "control_motor_node"
+            ]
+        ]
+    },
+    {
+        "id": "ui_button_velocidad_media",
+        "type": "ui_button",
+        "z": "d3d72eb37a8693c8",
+        "name": "Velocidad Media",
+        "group": "ui_group_motor",
+        "order": 5,
+        "width": "2",
+        "height": "1",
+        "passthru": false,
+        "label": "Media",
+        "tooltip": "Velocidad media",
+        "color": "white",
+        "bgcolor": "#FF9800",
+        "className": "",
+        "icon": "",
+        "payload": "{\"comando\":\"velocidad\",\"valor\":60}",
+        "payloadType": "json",
+        "topic": "motor",
+        "topicType": "str",
+        "x": 220,
+        "y": 720,
+        "wires": [
+            [
+                "control_motor_node"
+            ]
+        ]
+    },
+    {
+        "id": "ui_button_velocidad_alta",
+        "type": "ui_button",
+        "z": "d3d72eb37a8693c8",
+        "name": "Velocidad Alta",
+        "group": "ui_group_motor",
+        "order": 6,
+        "width": "2",
+        "height": "1",
+        "passthru": false,
+        "label": "Alta",
+        "tooltip": "Velocidad alta",
+        "color": "white",
+        "bgcolor": "#9C27B0",
+        "className": "",
+        "icon": "",
+        "payload": "{\"comando\":\"velocidad\",\"valor\":100}",
+        "payloadType": "json",
+        "topic": "motor",
+        "topicType": "str",
+        "x": 220,
+        "y": 760,
+        "wires": [
+            [
+                "control_motor_node"
+            ]
+        ]
+    },
+    {
+        "id": "ui_led_estado",
+        "type": "ui_led",
+        "z": "d3d72eb37a8693c8",
+        "order": 7,
+        "group": "ui_group_motor",
+        "width": "2",
+        "height": "1",
+        "label": "Estado Motor",
+        "labelPlacement": "left",
+        "labelAlignment": "left",
+        "colorForValue": [
+            {
+                "color": "#ff0000",
+                "value": "false",
+                "valueType": "bool"
+            },
+            {
+                "color": "#00ff00",
+                "value": "true",
+                "valueType": "bool"
+            }
+        ],
+        "allowColorForValueInMessage": false,
+        "shape": "circle",
+        "showGlow": true,
+        "name": "LED Estado",
+        "x": 680,
+        "y": 590,
+        "wires": []
+    },
+    {
+        "id": "ui_text_info",
+        "type": "ui_text",
+        "z": "d3d72eb37a8693c8",
+        "group": "ui_group_motor",
+        "order": 8,
+        "width": "4",
+        "height": "1",
+        "name": "Info Estado",
+        "label": "Información:",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "className": "",
+        "x": 680,
+        "y": 640,
+        "wires": []
+    },
+    {
+        "id": "control_motor_node",
+        "type": "function",
+        "z": "d3d72eb37a8693c8",
+        "name": "Lógica Control Motor",
+        "func": "// Obtener el contexto para mantener el estado\nlet estadoMotor = context.get('estadoMotor') || {\n    encendido: false,\n    velocidad: 0\n};\n\n// Procesar el comando recibido\nlet comando = msg.payload.comando;\nlet mensaje = \"\";\n\nswitch(comando) {\n    case 'encender':\n        estadoMotor.encendido = true;\n        if (estadoMotor.velocidad === 0) {\n            estadoMotor.velocidad = 50; // Velocidad por defecto\n        }\n        mensaje = \"Motor ENCENDIDO - Velocidad: \" + estadoMotor.velocidad + \"%\";\n        break;\n        \n    case 'apagar':\n        estadoMotor.encendido = false;\n        mensaje = \"Motor APAGADO\";\n        break;\n        \n    case 'velocidad':\n        if (estadoMotor.encendido) {\n            estadoMotor.velocidad = msg.payload.valor;\n            mensaje = \"Velocidad ajustada a: \" + estadoMotor.velocidad + \"%\";\n        } else {\n            mensaje = \"⚠️ El motor está apagado. Enciéndalo primero.\";\n        }\n        break;\n        \n    default:\n        mensaje = \"Comando no reconocido\";\n}\n\n// Guardar el estado actualizado\ncontext.set('estadoMotor', estadoMotor);\n\n// Preparar mensaje de salida para información\nmsg.payload = mensaje;\nmsg.estadoMotor = estadoMotor;\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 470,
+        "y": 660,
+        "wires": [
+            [
+                "ui_text_info",
+                "salida_mqtt"
+            ]
+        ]
+    },
+    {
+        "id": "actualizar_led_node",
+        "type": "function",
+        "z": "d3d72eb37a8693c8",
+        "name": "Actualizar LED",
+        "func": "// Extraer el estado del comando\nmsg.payload = msg.payload.estado;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 470,
+        "y": 590,
+        "wires": [
+            [
+                "ui_led_estado"
+            ]
+        ]
+    },
+    {
+        "id": "salida_mqtt",
+        "type": "mqtt out",
+        "z": "d3d72eb37a8693c8",
+        "name": "Publicar a MQTT",
+        "topic": "motor/control",
+        "qos": "0",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "mqtt_broker",
+        "x": 700,
+        "y": 700,
+        "wires": []
+    },
+    {
+        "id": "comment_info",
+        "type": "comment",
+        "z": "d3d72eb37a8693c8",
+        "name": "📋 INSTRUCCIONES DE USO",
+        "info": "# Dashboard Control de Motor\n\n## Componentes:\n\n1. **Imagen del Motor**: Representación visual\n2. **Botones de Control**:\n   - Encender: Activa el motor\n   - Apagar: Desactiva el motor\n   - Velocidades: Baja (30%), Media (60%), Alta (100%)\n3. **LED de Estado**: \n   - 🔴 Rojo: Motor apagado\n   - 🟢 Verde: Motor encendido\n4. **Información**: Muestra el estado actual\n\n## Configuración MQTT (Opcional):\nSi deseas conectar con hardware real:\n- Edita el nodo \"Broker Local\"\n- Configura la IP de tu broker MQTT\n- El topic es: motor/control\n\n## Acceso al Dashboard:\nhttp://localhost:1880/ui\n\n## Estado del Motor:\nSe mantiene en contexto y persiste durante la sesión.",
+        "x": 210,
+        "y": 420,
+        "wires": []
+    },
+    {
+        "id": "6429ecf6f223fb6c",
+        "type": "subflow:subflow_modbus_coils",
+        "z": "d3d72eb37a8693c8",
         "name": "",
-        "clienttype": "tcp",
-        "bufferCommands": true,
-        "stateLogEnabled": false,
-        "queueLogEnabled": false,
-        "failureLogEnabled": true,
-        "tcpHost": "127.0.0.1",
-        "tcpPort": 502,
-        "tcpType": "DEFAULT",
-        "serialPort": "/dev/ttyUSB",
-        "serialType": "RTU-BUFFERD",
-        "serialBaudrate": 9600,
-        "serialDatabits": 8,
-        "serialStopbits": 1,
-        "serialParity": "none",
-        "serialConnectionDelay": 100,
-        "serialAsciiResponseStartDelimiter": "0x3A",
-        "unit_id": 1,
-        "commandDelay": 1,
-        "clientTimeout": 1000,
-        "reconnectOnTimeout": true,
-        "reconnectTimeout": 2000,
-        "parallelUnitIdsAllowed": true,
-        "showErrors": false,
-        "showWarnings": true,
-        "showLogs": true
+        "x": 150,
+        "y": 220,
+        "wires": [
+            []
+        ]
     },
     {
-        "id": "609cd21ad0a462c0",
-        "type": "modbus-client",
-        "name": "asd",
-        "clienttype": "tcp",
-        "bufferCommands": true,
-        "stateLogEnabled": false,
-        "queueLogEnabled": false,
-        "failureLogEnabled": true,
-        "tcpHost": "127.0.0.1",
-        "tcpPort": 502,
-        "tcpType": "DEFAULT",
-        "serialPort": "/dev/ttyUSB",
-        "serialType": "RTU-BUFFERD",
-        "serialBaudrate": 9600,
-        "serialDatabits": 8,
-        "serialStopbits": 1,
-        "serialParity": "none",
-        "serialConnectionDelay": 100,
-        "serialAsciiResponseStartDelimiter": "0x3A",
-        "unit_id": 1,
-        "commandDelay": 1,
-        "clientTimeout": 1000,
-        "reconnectOnTimeout": true,
-        "reconnectTimeout": 2000,
-        "parallelUnitIdsAllowed": true,
-        "showErrors": false,
-        "showWarnings": true,
-        "showLogs": true
+        "id": "022e9a7af1e7567e",
+        "type": "subflow:subflow_timestamp",
+        "z": "d3d72eb37a8693c8",
+        "name": "",
+        "x": 150,
+        "y": 280,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "f4f19d60bfbd3acd",
+        "type": "subflow:subflow_csv_max",
+        "z": "d3d72eb37a8693c8",
+        "name": "",
+        "x": 160,
+        "y": 340,
+        "wires": [
+            []
+        ]
     },
     {
         "id": "modbus-server-1",
@@ -100,100 +704,60 @@
         "parallelUnitIdsAllowed": true
     },
     {
-        "id": "1a2b3c4d5e6f7g8h",
-        "type": "modbus-read",
-        "z": "a1b2c3d4e5f6g7h8",
-        "name": "Leer Coils 1-4",
-        "topic": "",
-        "showStatusActivities": false,
-        "logIOActivities": false,
-        "showErrors": false,
-        "showWarnings": true,
-        "unitid": "1",
-        "dataType": "Coil",
-        "adr": "0",
-        "quantity": "4",
-        "rate": "1",
-        "rateUnit": "s",
-        "delayOnStart": false,
-        "enableDeformedMessages": false,
-        "startDelayTime": "",
-        "server": "modbus-server-1",
-        "useIOFile": false,
-        "ioFile": "",
-        "useIOForPayload": false,
-        "emptyMsgOnFail": false,
-        "x": 280,
-        "y": 200,
-        "wires": [
-            [
-                "2b3c4d5e6f7g8h9i"
-            ],
-            []
-        ]
+        "id": "ui_group_motor",
+        "type": "ui_group",
+        "name": "Control de Motor",
+        "tab": "ui_tab_motor",
+        "order": 1,
+        "disp": true,
+        "width": "6",
+        "collapse": false,
+        "className": ""
     },
     {
-        "id": "2b3c4d5e6f7g8h9i",
-        "type": "function",
-        "z": "a1b2c3d4e5f6g7h8",
-        "name": "Procesar Datos Coils",
-        "func": "// Procesar las 4 coils leídas\nvar coils = msg.payload;\n\nmsg.payload = {\n    coil_1: coils[0],\n    coil_2: coils[1],\n    coil_3: coils[2],\n    coil_4: coils[3],\n    timestamp: new Date().toISOString()\n};\n\nreturn msg;",
-        "outputs": 1,
-        "timeout": "",
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 520,
-        "y": 200,
-        "wires": [
-            [
-                "3c4d5e6f7g8h9i0j"
-            ]
-        ]
+        "id": "mqtt_broker",
+        "type": "mqtt-broker",
+        "name": "Broker Local",
+        "broker": "localhost",
+        "port": "1883",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
     },
     {
-        "id": "3c4d5e6f7g8h9i0j",
-        "type": "debug",
-        "z": "a1b2c3d4e5f6g7h8",
-        "name": "Mostrar Coils",
-        "active": true,
-        "tosidebar": true,
-        "console": false,
-        "tostatus": false,
-        "complete": "payload",
-        "targetType": "msg",
-        "statusVal": "",
-        "statusType": "auto",
-        "x": 750,
-        "y": 200,
-        "wires": []
+        "id": "ui_tab_motor",
+        "type": "ui_tab",
+        "name": "Motor",
+        "icon": "dashboard",
+        "order": 1,
+        "disabled": false,
+        "hidden": false
     },
     {
-        "id": "4d5e6f7g8h9i0j1k",
-        "type": "inject",
-        "z": "a1b2c3d4e5f6g7h8",
-        "name": "Iniciar Lectura Manual",
-        "props": [
-            {
-                "p": "payload"
-            },
-            {
-                "p": "topic",
-                "vt": "str"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "topic": "",
-        "payload": "",
-        "payloadType": "date",
-        "x": 290,
-        "y": 120,
-        "wires": [
-            []
-        ]
+        "id": "31b6366df169e623",
+        "type": "global-config",
+        "env": [],
+        "modules": {
+            "node-red-contrib-modbus": "5.45.2",
+            "node-red-dashboard": "3.6.6",
+            "node-red-contrib-ui-led": "0.4.11"
+        }
     }
 ]
